@@ -2,39 +2,26 @@ import streamlit as st
 import pickle
 import string
 import nltk
-import os
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 
-# --------------------------
-# Setup NLTK resources safely
-# --------------------------
-nltk_data_dir = os.path.join(os.getcwd(), "nltk_data")
-if not os.path.exists(nltk_data_dir):
-    os.mkdir(nltk_data_dir)
-
-nltk.data.path.append(nltk_data_dir)
-
-# Download required resources if missing
-for resource in ["punkt", "stopwords"]:
-    try:
-        if resource == "punkt":
-            nltk.data.find("tokenizers/punkt")
-        else:
-            nltk.data.find("corpora/stopwords")
-    except LookupError:
-        nltk.download(resource, download_dir=nltk_data_dir)
+# Download required NLTK resources
+nltk.download('punkt')
+nltk.download('stopwords')
 
 ps = PorterStemmer()
 
-# --------------------------
-# Preprocessing function
-# --------------------------
+# Lowercase, tokenization, removing special characters, removing stopwords, stemming
 def transform_text(text):
     # Lowercase
     text = text.lower()
     # Tokenization
-    text = nltk.word_tokenize(text)
+    try:
+        text = nltk.word_tokenize(text)
+    except LookupError:
+        # fallback if punkt_tab is missing
+        nltk.download('punkt')
+        text = nltk.word_tokenize(text)
 
     y = []
     # Remove special characters (only alphanumeric kept)
@@ -44,7 +31,7 @@ def transform_text(text):
 
     # Remove stopwords & punctuation
     text = []
-    stop_words = set(stopwords.words('english'))  # load once for speed
+    stop_words = set(stopwords.words('english'))
     for i in y:
         if i not in stop_words and i not in string.punctuation:
             text.append(i)
@@ -54,15 +41,12 @@ def transform_text(text):
 
     return " ".join(y)
 
-# --------------------------
-# Load model & vectorizer
-# --------------------------
+
+# Load trained model & vectorizer
 model = pickle.load(open('model.pkl', 'rb'))
 tfidf = pickle.load(open('vectorizer.pkl', 'rb'))
 
-# --------------------------
 # Streamlit UI
-# --------------------------
 st.title("📧 Email/SMS Spam Classifier")
 
 input_text = st.text_area("Enter your text")
@@ -80,7 +64,8 @@ if st.button("Predict"):
         # Predict
         result = model.predict(vector_input)
 
-        if result == 1:
+        if result[0] == 1:
             st.header("🚨 Spam")
         else:
             st.header("✅ Not Spam")
+
